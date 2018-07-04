@@ -3,7 +3,7 @@
 
 #include "stm32f10x.h"
 #define I2C_SLAVE_ADDR		0x3C	//[6:0]
-#define I2C_Speed			20000
+#define I2C_Speed			200000//20000
 #define I2C_DEVICE			I2C1
 
 #define FLAG_Mask               ((uint32_t)0x00FFFFFF)

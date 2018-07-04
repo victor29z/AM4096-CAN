@@ -3,13 +3,19 @@
 
 /* Micro defines
 --------------------------------------------*/
-#define USE_INTERNAL_OSC
+//#define USE_INTERNAL_OSC
 #define AIRCR_VECTKEY_MASK    ((u32)0x05FA0000)
 #define MAIN_CLOCK	72000000
 
 #define TIMER_STATUS_STOP		0x01
 #define TIMER_STATUS_RUNNING	0x02
 #define TIMER_STATUS_UP			0x03
+
+#define SERIAL_CMD_IDLE			0x01
+#define SERIAL_CMD_RECV			0x02
+#define SERIAL_CMD_FINISHED		0x03
+
+
 
 /*Structs
 ---------------------------------------------*/

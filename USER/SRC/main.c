@@ -54,12 +54,15 @@ volatile unsigned int CPU_ID1;
 volatile unsigned int CPU_ID2;
 unsigned int can_id;
 unsigned long can_status;
-//__no_init const unsigned int can_id_mem @ 0x0800FC00;
+__no_init const unsigned int can_id_mem @ 0x0800FC00;
 unsigned char key_result=0;
 
 unsigned int bus_busy_cnt = 0;
 
 extern SMB_data_strcut SMB_data_buffer;
+
+unsigned int serial_cmd_timeout = 0;
+unsigned char serial_cmd_status = SERIAL_CMD_IDLE;
 
 /*Extern varibles
 ---------------------------------------------*/
@@ -83,7 +86,7 @@ int main(void)
 	CPU_ID1 = *(u32*)(0x1FFFF7EC);   
 	CPU_ID2 = *(u32*)(0x1FFFF7F0);
 	Delay_nms(CPU_ID0 & 0x1ff);
-	can_id = CPU_ID0 & 0x7ff;
+	//can_id = CPU_ID0 & 0x7ff;
 	hw_init();
 	SMBus_Init();
 
@@ -91,14 +94,8 @@ int main(void)
 
 	
 	
-	//GPIO_SetBits(LED1_PORT,LED1_PIN);
-	//GPIO_ResetBits(LED0_PORT,LED0_PIN);
-	//GPIO_SetBits(SEN_ONOFF_PORT,SEN_ONOFF_PIN);
-
-	//Delay_nms(CPU_ID0 & 0x1ff);
-
-	/*Main loop*/
-	unsigned int ssi_res;
+	
+	
 	
 	SMB_Write_Word(50,TYPE_RAM,0x0080);
 	while(SMB_status != SMB_W_FINISHED);
@@ -123,7 +120,7 @@ int main(void)
 			SMB_status = SMB_IDLE;
 			result = Caculate_Temp();
 			
-			printf("ssi: %d, cnt: %d, mag: %d\r\n",result,bus_busy_cnt, MAG_Status);
+			//printf("ssi: %d, cnt: %d, mag: %d\r\n",result,bus_busy_cnt, MAG_Status);
 			//printf("reg: 0x%x\r\n",SMB_data_buffer.data);
 			bus_busy_cnt = 0;
 			//not a default id then send temp
@@ -131,6 +128,10 @@ int main(void)
 			
 			
 			Can_Send_Temp(result,MAG_Status,can_id);
+		}
+
+		if(serial_cmd_status == SERIAL_CMD_FINISHED){
+			Serial_cmd_parse();
 		}
 		
 	
@@ -178,11 +179,12 @@ static void clock_init(void)
 	RCC_PLLConfig(RCC_PLLSource_HSE_Div1, RCC_PLLMul_9);
 #endif
 #endif
-	//RCC_PLLCmd(ENABLE);//PLL is disabled for saving energy
+	RCC_PLLCmd(ENABLE);//PLL is disabled for saving energy
 
-	//while(RCC_GetFlagStatus(RCC_FLAG_PLLRDY) == RESET);
-	RCC_SYSCLKConfig(RCC_SYSCLKSource_HSI);//Use HSI as sysclk for saving energy
-    while (RCC_GetSYSCLKSource()!= 0x00);//Check sysclk source 0x00-HSI, 0x04-HSE, 0x08-PLL
+	while(RCC_GetFlagStatus(RCC_FLAG_PLLRDY) == RESET);
+	//RCC_SYSCLKConfig(RCC_SYSCLKSource_HSI);//Use HSI as sysclk for saving energy
+	RCC_SYSCLKConfig(RCC_SYSCLKSource_PLLCLK);
+	while (RCC_GetSYSCLKSource()!= 0x08);//Check sysclk source 0x00-HSI, 0x04-HSE, 0x08-PLL
 
 /////////////////////////////////////////////////////////////////////////////
 /*Enable used periph clocks*/
@@ -310,6 +312,12 @@ static void hw_init(void)
 	CAN_init();
 	//Check_Flash();
 	asm("CPSIE   I");	//enable cpu interrupt
+	
+	FLASH_Unlock();
+	can_id = (*(unsigned int *)(DATA_SPACE_BASE + DATA_OFFSET_CANID))& 0x7ff;
+	can_id = can_id_mem & 0x7ff;
+	FLASH_Lock();
+	
 }
 
 void NVIC_GenerateSystemReset(void)
@@ -409,7 +417,7 @@ void Systick_Procedure(void)
 {
 	static unsigned char led_status = 1;
 	static unsigned int counter;
-
+	/*
 	
 	if(counter < 500){
 		counter++;
@@ -429,7 +437,7 @@ void Systick_Procedure(void)
 		}
 			
 	}
-	
+	*/
 
 	if(counter % 10 == 0){
 		read_request = 1;
@@ -438,11 +446,17 @@ void Systick_Procedure(void)
 	if(SMB_status != SMB_IDLE){
 			bus_busy_cnt++;
 	}
-
-	if(bus_busy_cnt > 10){
-		bus_busy_cnt = 0;
-		//NVIC_GenerateSystemReset();
+/*
+	if(serial_cmd_status != SERIAL_CMD_IDLE){
+		if(serial_cmd_timeout < 20)
+			serial_cmd_timeout++;
+		else{
+			serial_cmd_timeout = 0;
+			serial_cmd_status = SERIAL_CMD_FINISHED;
+		}
 	}
+
+	*/
 	if(soft_timer.status == TIMER_STATUS_RUNNING){
 		if(	soft_timer.remaining>0)
 			soft_timer.remaining--;

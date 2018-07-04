@@ -45,7 +45,8 @@ extern unsigned char SMB_status;
 extern unsigned char Receive_data;
 extern unsigned char can_data[8];
 extern unsigned char new_can_data;
-
+extern unsigned int serial_cmd_timeout;
+extern unsigned char serial_cmd_status;
 /* Private functions ---------------------------------------------------------*/
 
 /******************************************************************************/
@@ -211,8 +212,10 @@ void USART1_IRQHandler(void)
     u8 data_receive;
 	data_receive=USART_ReceiveData(USART1);
 	if(Serial_Buffer_index < (SERIAL_BUFF_MAX - 1)) Serial_Buffer[Serial_Buffer_index++] = data_receive;
-	USART_SendData(USART1,data_receive);
-	if(SMB_status == SMB_IDLE)read_request = 1;    
+	serial_cmd_status = SERIAL_CMD_RECV;
+	
+	//USART_SendData(USART1,data_receive);
+	//if(SMB_status == SMB_IDLE)read_request = 1;    
 }
 
 void  USB_LP_CAN1_RX0_IRQHandler(void)

@@ -13,6 +13,7 @@
 
 void Show_Menu(void);
 void Console(void);
+void Serial_cmd_parse(void);
 
 
 #endif

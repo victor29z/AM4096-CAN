@@ -8,7 +8,8 @@
 unsigned char Serial_Buffer[SERIAL_BUFF_MAX];
 unsigned char Serial_Buffer_index = 0;
 unsigned char Console_Status = CONSOLE_STAT_MENU;
-
+extern unsigned int serial_cmd_timeout;
+extern unsigned char serial_cmd_status;
 void Show_Menu(void)
 {
 
@@ -26,16 +27,16 @@ void Console(void)
 			return;
 		break;
 		case CONSOLE_STAT_MENU:
-			key = Serial_Buffer[Serial_Buffer_index--];
+			key = Serial_Buffer[--Serial_Buffer_index];
 			USART_SendData(USART1, 0x0c);
 			switch(key)
 			{
-				case 1:
+				case '1':
 					printf("Press any key return...\n");
 					printf("Temperature: \n");
 					Console_Status = CONSOLE_STAT_TEMP;
 				break;
-				case 2:
+				case '2':
 					printf("Input emissivity within 0~100\n");
 					Console_Status = CONSOLE_STAT_EMI;
 				break;
@@ -51,4 +52,33 @@ void Console(void)
 		
 	}
 }
+void Serial_cmd_parse(void){
+	unsigned int dat;
+	if(Serial_Buffer[0]!= 0x55 || Serial_Buffer[1]!= 0xaa 
+		|| Serial_Buffer[5]!= 0xaa || Serial_Buffer[6]!= 0x55 ){
+		printf("bad command\r\n");
+		return;
+	}
+
+	switch(Serial_Buffer[2]){
+		case 0xa1:	//set can id
+			dat = Serial_Buffer[3] ;
+			dat = dat<<8 + Serial_Buffer[4];
+			printf("set can id = 0x%x\r\n",dat);
+		break;
+		case 0xa2:	//set data offset
+			dat = Serial_Buffer[3] ;
+			dat = dat<<8 + Serial_Buffer[4];
+			printf("set data offset = %d\r\n",dat);
+		break;
+		default:
+			printf("bad command\r\n");
+		break;
+	}
+	
+	
+		
+
+}
+
 

@@ -26,14 +26,16 @@ extern unsigned int can_id;
 
 
 
+
 void CAN_init(void)
 {
 	CAN_InitTypeDef        CAN_InitStructure;
 	CAN_FilterInitTypeDef  CAN_FilterInitStructure;
-	//FLASH_Unlock();
-	//can_id = (*(unsigned int *)(DATA_SPACE_BASE + DATA_OFFSET_CANID))& 0x7ff;
-	//can_id = can_id_mem & 0x7ff;
-	//FLASH_Lock();
+/*	FLASH_Unlock();
+	can_id = (*(unsigned int *)(DATA_SPACE_BASE + DATA_OFFSET_CANID))& 0x7ff;
+	can_id = can_id_mem & 0x7ff;
+	FLASH_Lock();
+	*/
 	//  CAN register init 
 	CAN_DeInit(CAN1);
 	CAN_StructInit(&CAN_InitStructure);
@@ -49,7 +51,7 @@ void CAN_init(void)
 	CAN_InitStructure.CAN_BS1=CAN_BS1_8tq;
 	CAN_InitStructure.CAN_BS2=CAN_BS2_7tq;
 	//CAN bit rate = RCC_APB1PeriphClock/CAN_SJW+CAN_BS1+CAN_BS2/CAN_Prescaler; 
-	CAN_InitStructure.CAN_Prescaler=10; //8MHz/(1+8+7)/10 =50Kbps
+	CAN_InitStructure.CAN_Prescaler=90; //72MHz/(1+8+7)/90 =50Kbps
 	CAN_Init(CAN1,&CAN_InitStructure);
 	// CAN filter init 
 	CAN_FilterInitStructure.CAN_FilterNumber=0; 					//Ñ¡Ôñ¹ýÂËÆ÷0
