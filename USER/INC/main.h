@@ -15,6 +15,7 @@
 #define SERIAL_CMD_RECV			0x02
 #define SERIAL_CMD_FINISHED		0x03
 
+#define ADC1_DR_Address    	((u32)0x4001244C)
 
 
 /*Structs
@@ -38,6 +39,8 @@ void Systick_Procedure(void);
 void Delay_nms(unsigned int n);
 void Serial_Init(void);
 unsigned int get_ssi_value(void);
+void ADC_Configuration(void);
+void Set_Data_Offset(int offset);
 
 
 

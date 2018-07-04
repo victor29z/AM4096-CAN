@@ -158,7 +158,7 @@ void Can_Send_Temp(unsigned int temp, unsigned char mag,unsigned int id)
 	TxMessage.StdId=can_id;        //接受板地址
 	TxMessage.IDE=CAN_ID_STD;//使用标准帧
 	TxMessage.RTR=CAN_RTR_DATA;//发送数据帧
-	TxMessage.DLC= 2; //设置发送数据的长度
+	TxMessage.DLC= 3; //设置发送数据的长度
 
 	TxMessage.Data[0] = (temp >> 8) & 0xff;
 	TxMessage.Data[1] = temp & 0xff;

@@ -3,7 +3,7 @@
 #include "smbus.h"
 #include <stdio.h>
 #include "stm32f10x_usart.h"
-
+#include "can_user.h"
 
 unsigned char Serial_Buffer[SERIAL_BUFF_MAX];
 unsigned char Serial_Buffer_index = 0;
@@ -52,23 +52,37 @@ void Console(void)
 		
 	}
 }
+
+/*
+		Serial Command Format
+		0x55 0xaa CMD dat_H dat_L 0xaa 0x55
+
+		CMD: 	a1 -- set can ID
+				a2 -- set data offset
+
+*/
 void Serial_cmd_parse(void){
 	unsigned int dat;
 	if(Serial_Buffer[0]!= 0x55 || Serial_Buffer[1]!= 0xaa 
 		|| Serial_Buffer[5]!= 0xaa || Serial_Buffer[6]!= 0x55 ){
 		printf("bad command\r\n");
+		serial_cmd_status = SERIAL_CMD_IDLE;
+		Serial_Buffer_index = 0;
 		return;
 	}
 
 	switch(Serial_Buffer[2]){
 		case 0xa1:	//set can id
 			dat = Serial_Buffer[3] ;
-			dat = dat<<8 + Serial_Buffer[4];
+			dat <<= 8;
+			dat += Serial_Buffer[4];
+			Set_Can_id(dat);
 			printf("set can id = 0x%x\r\n",dat);
 		break;
 		case 0xa2:	//set data offset
 			dat = Serial_Buffer[3] ;
-			dat = dat<<8 + Serial_Buffer[4];
+			dat <<= 8;
+			dat += Serial_Buffer[4];
 			printf("set data offset = %d\r\n",dat);
 		break;
 		default:
@@ -76,7 +90,8 @@ void Serial_cmd_parse(void){
 		break;
 	}
 	
-	
+	serial_cmd_status = SERIAL_CMD_IDLE;
+	Serial_Buffer_index = 0;
 		
 
 }

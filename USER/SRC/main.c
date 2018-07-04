@@ -11,6 +11,8 @@
 #include "stm32f10x_can.h"
 #include "stm32f10x_flash.h"
 #include "stm32f10x_i2c.h"
+#include "stm32f10x_adc.h"
+#include "stm32f10x_dma.h"
 
 #include "can_user.h"
 
@@ -64,6 +66,8 @@ extern SMB_data_strcut SMB_data_buffer;
 unsigned int serial_cmd_timeout = 0;
 unsigned char serial_cmd_status = SERIAL_CMD_IDLE;
 
+volatile unsigned int ADC1Result;
+
 /*Extern varibles
 ---------------------------------------------*/
 
@@ -97,8 +101,8 @@ int main(void)
 	
 	
 	
-	SMB_Write_Word(50,TYPE_RAM,0x0080);
-	while(SMB_status != SMB_W_FINISHED);
+	//SMB_Write_Word(50,TYPE_RAM,0x0080);
+	//while(SMB_status != SMB_W_FINISHED);
 	SMB_status = SMB_IDLE;
 	Systick_init();
 	while (1)
@@ -107,9 +111,9 @@ int main(void)
 		if(read_request == 1 && SMB_status == SMB_IDLE){
 			read_request = 0;
 			//ssi_res = get_ssi_value();
-			//printf(" ssi: %d\r\n",ssi_res);
-			SMB_Read_Word(REG_APOS,TYPE_RAM);
-			//SMB_Read_Word(50,TYPE_RAM);
+			
+			//SMB_Read_Word(REG_APOS,TYPE_RAM);
+			
 			
 
 		}
@@ -133,6 +137,8 @@ int main(void)
 		if(serial_cmd_status == SERIAL_CMD_FINISHED){
 			Serial_cmd_parse();
 		}
+		//printf("dat: %d, mag: %d\r\n",ADC1Result, MAG_Status);
+		Can_Send_Temp(ADC1Result,MAG_Status,can_id);
 		
 	
 	}
@@ -190,7 +196,7 @@ static void clock_init(void)
 /*Enable used periph clocks*/
 	/* APB2 clock enable */
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR , ENABLE);//enable rtc clock
-    //RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
     RCC_APB2PeriphClockCmd(	RCC_APB2Periph_GPIOA 
     						| RCC_APB2Periph_GPIOB 
     						| RCC_APB2Periph_GPIOC 
@@ -199,7 +205,7 @@ static void clock_init(void)
     						//| RCC_APB2Periph_GPIOF 
     						//| RCC_APB2Periph_GPIOG 
     						| RCC_APB2Periph_AFIO  
-    						//| RCC_APB2Periph_ADC1  
+    						| RCC_APB2Periph_ADC1  
     						//| RCC_APB2Periph_ADC3  
     						//| RCC_APB2Periph_TIM1  
     						//| RCC_APB2Periph_TIM8  
@@ -300,6 +306,12 @@ static void port_init(void)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+	//ADC
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
 }
 
 static void hw_init(void)
@@ -317,6 +329,7 @@ static void hw_init(void)
 	can_id = (*(unsigned int *)(DATA_SPACE_BASE + DATA_OFFSET_CANID))& 0x7ff;
 	can_id = can_id_mem & 0x7ff;
 	FLASH_Lock();
+	ADC_Configuration();
 	
 }
 
@@ -446,7 +459,7 @@ void Systick_Procedure(void)
 	if(SMB_status != SMB_IDLE){
 			bus_busy_cnt++;
 	}
-/*
+
 	if(serial_cmd_status != SERIAL_CMD_IDLE){
 		if(serial_cmd_timeout < 20)
 			serial_cmd_timeout++;
@@ -456,7 +469,7 @@ void Systick_Procedure(void)
 		}
 	}
 
-	*/
+	
 	if(soft_timer.status == TIMER_STATUS_RUNNING){
 		if(	soft_timer.remaining>0)
 			soft_timer.remaining--;
@@ -506,6 +519,81 @@ unsigned int get_ssi_value(void){
 	while(!GPIO_ReadInputDataBit(SSIDAT_PORT,SSIDAT_PIN));
 	asm("CPSIE   I");	//enable cpu interrupt
 	return tmp;
+
+}
+
+
+void ADC_Configuration(void)
+{
+	ADC_InitTypeDef ADC_InitStructure;
+	DMA_InitTypeDef DMA_InitStructure;
+
+	/* DMA1 channel1 configuration ----------------------------------------------*/
+	DMA_DeInit(DMA1_Channel1);
+	
+    DMA_InitStructure.DMA_PeripheralBaseAddr = ADC1_DR_Address;
+	DMA_InitStructure.DMA_MemoryBaseAddr = (u32 )(&ADC1Result);
+	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
+	DMA_InitStructure.DMA_BufferSize = 1;
+	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Disable;
+	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
+	DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
+	DMA_InitStructure.DMA_Priority = DMA_Priority_High;
+	DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
+	DMA_Init(DMA1_Channel1, &DMA_InitStructure);
+
+	/* Enable DMA1 channel1 */
+	DMA_Cmd(DMA1_Channel1, ENABLE);
+
+	/* ADC1 configuration ------------------------------------------------------*/
+	ADC_InitStructure.ADC_Mode = ADC_Mode_Independent;
+	ADC_InitStructure.ADC_ScanConvMode = DISABLE;
+	ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;
+	ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
+	ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
+	ADC_InitStructure.ADC_NbrOfChannel = 1;
+	ADC_Init(ADC1, &ADC_InitStructure);
+	/* ADC1 regular channel14 configuration */ 
+	//ADC_RegularChannelConfig(ADC1, ADC_Channel_16, 1, ADC_SampleTime_55Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 1, ADC_SampleTime_55Cycles5);
+/*
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_3, 2, ADC_SampleTime_7Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_4, 3, ADC_SampleTime_7Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_5, 4, ADC_SampleTime_7Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_10, 5, ADC_SampleTime_7Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_11, 6, ADC_SampleTime_7Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_12, 7, ADC_SampleTime_7Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_13, 8, ADC_SampleTime_7Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_14, 9, ADC_SampleTime_7Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_15, 10, ADC_SampleTime_7Cycles5);
+*/	
+	/* Enable the temperature sensor and vref internal channel */ 
+	//ADC_TempSensorVrefintCmd(ENABLE); 
+	/* Enable ADC1 DMA */
+	ADC_DMACmd(ADC1, ENABLE);
+
+	/* Enable ADC1 */
+	ADC_Cmd(ADC1, ENABLE);
+	/* Enable ADC1 reset calibaration register */
+	ADC_ResetCalibration(ADC1);
+	/* Check the end of ADC1 reset calibration register */
+	while(ADC_GetResetCalibrationStatus(ADC1));
+	/* Start ADC1 calibaration */
+	ADC_StartCalibration(ADC1);
+	/* Check the end of ADC1 calibration */
+	while(ADC_GetCalibrationStatus(ADC1));
+
+	/* Start ADC1 Software Conversion */ 
+	ADC_SoftwareStartConvCmd(ADC1, ENABLE);
+	
+}
+
+
+void Set_Data_Offset(int offset)
+{
+	
 
 }
 
