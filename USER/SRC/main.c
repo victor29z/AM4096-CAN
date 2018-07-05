@@ -80,9 +80,8 @@ extern unsigned char Serial_Buffer_index;
 int main(void)
 {
 /*Local varibles declaration*/
-	//CanTxMsg TxMessage; //定义数据结构类型变量
-	//unsigned char TransmitMailbox = 0;
-	//unsigned int i = 0;
+
+	unsigned int ssi_res;
 	
 	
 /*System Initial*/
@@ -90,7 +89,7 @@ int main(void)
 	CPU_ID1 = *(u32*)(0x1FFFF7EC);   
 	CPU_ID2 = *(u32*)(0x1FFFF7F0);
 	Delay_nms(CPU_ID0 & 0x1ff);
-	//can_id = CPU_ID0 & 0x7ff;
+	
 	hw_init();
 	SMBus_Init();
 
@@ -98,22 +97,60 @@ int main(void)
 
 	
 	
-	
-	
-	
-	//SMB_Write_Word(50,TYPE_RAM,0x0080);
-	//while(SMB_status != SMB_W_FINISHED);
+	SMB_Write_Word(50,TYPE_RAM,0x0080);
+	while(SMB_status != SMB_W_FINISHED);
 	SMB_status = SMB_IDLE;
+
+	SMB_Write_Word(51,TYPE_RAM,0x1800);
+	while(SMB_status != SMB_W_FINISHED);
+	SMB_status = SMB_IDLE;
+	
+	
+	
+	SMB_status = SMB_IDLE;
+	SMB_Read_Word(34,TYPE_RAM);
+	while(SMB_status != SMB_R_FINISHED);
+	printf("reg34 = 0x%x\r\n",SMB_data_buffer.data);
+	SMB_status = SMB_IDLE;
+
+	SMB_Read_Word(35,TYPE_RAM);
+	while(SMB_status != SMB_R_FINISHED);
+	printf("reg35 = 0x%x\r\n",SMB_data_buffer.data);
+	SMB_status = SMB_IDLE;
+
+	SMB_Read_Word(48,TYPE_RAM);
+	while(SMB_status != SMB_R_FINISHED);
+	printf("reg48 = 0x%x\r\n",SMB_data_buffer.data);
+	SMB_status = SMB_IDLE;
+
+	SMB_Read_Word(49,TYPE_RAM);
+	while(SMB_status != SMB_R_FINISHED);
+	printf("reg49 = 0x%x\r\n",SMB_data_buffer.data);
+	SMB_status = SMB_IDLE;
+
+	SMB_Read_Word(50,TYPE_RAM);
+	while(SMB_status != SMB_R_FINISHED);
+	printf("reg50 = 0x%x\r\n",SMB_data_buffer.data);
+	SMB_status = SMB_IDLE;
+	
+	SMB_Read_Word(51,TYPE_RAM);
+	while(SMB_status != SMB_R_FINISHED);
+	printf("reg51 = 0x%x\r\n",SMB_data_buffer.data);
+	SMB_status = SMB_IDLE;
+
+	
 	Systick_init();
 	while (1)
 	{	
 		MAG_Status = GPIO_ReadInputDataBit(MAG_PORT,MAG_PIN);
 		if(read_request == 1 && SMB_status == SMB_IDLE){
 			read_request = 0;
-			//ssi_res = get_ssi_value();
 			
-			//SMB_Read_Word(REG_APOS,TYPE_RAM);
 			
+			
+			ssi_res = get_ssi_value();
+			//printf("ssi: %d, mag: %d\r\n",ssi_res, MAG_Status);
+			Can_Send_Temp(ssi_res,MAG_Status,can_id);
 			
 
 		}
@@ -137,8 +174,7 @@ int main(void)
 		if(serial_cmd_status == SERIAL_CMD_FINISHED){
 			Serial_cmd_parse();
 		}
-		//printf("dat: %d, mag: %d\r\n",ADC1Result, MAG_Status);
-		Can_Send_Temp(ADC1Result,MAG_Status,can_id);
+		
 		
 	
 	}
@@ -429,7 +465,8 @@ void Systick_init(void)
 void Systick_Procedure(void)
 {
 	static unsigned char led_status = 1;
-	static unsigned int counter;
+	static unsigned long int counter;
+	
 	/*
 	
 	if(counter < 500){
@@ -452,7 +489,7 @@ void Systick_Procedure(void)
 	}
 	*/
 
-	if(counter % 10 == 0){
+	if(counter % 5 == 0){
 		read_request = 1;
 	}
 
@@ -477,7 +514,7 @@ void Systick_Procedure(void)
 			soft_timer.status = TIMER_STATUS_UP;
 	}
 	
-	
+	counter++;
 	
 }
 
@@ -501,7 +538,7 @@ unsigned int get_ssi_value(void){
 	//t = GPIO_ReadInputDataBit(SSIDAT_PORT,SSIDAT_PIN);
 	GPIO_ResetBits(SSICLK_PORT,SSICLK_PIN);
 	//t = GPIO_ReadInputDataBit(SSIDAT_PORT,SSIDAT_PIN);
-	for(i = 0; i < 12; i++){
+	for(i = 0; i < 13; i++){
 
 		GPIO_SetBits(SSICLK_PORT,SSICLK_PIN);
 		tmp <<= 1;
@@ -518,6 +555,7 @@ unsigned int get_ssi_value(void){
 	GPIO_SetBits(SSICLK_PORT,SSICLK_PIN);
 	while(!GPIO_ReadInputDataBit(SSIDAT_PORT,SSIDAT_PIN));
 	asm("CPSIE   I");	//enable cpu interrupt
+	tmp >>=1;
 	return tmp;
 
 }
