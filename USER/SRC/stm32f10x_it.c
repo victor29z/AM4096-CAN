@@ -218,6 +218,42 @@ void USART1_IRQHandler(void)
 	//if(SMB_status == SMB_IDLE)read_request = 1;    
 }
 
+void USART2_IRQHandler(void)
+{
+	
+	//开启CR3,bit0的EIE: Error interrupt enable, 处理USART_IT_ERR,USART_IT_ORE_ER,USART_IT_NE,USART_IT_FE	错误
+	if(USART_GetFlagStatus(USART2, USART_FLAG_ORE) != RESET)
+	{//同  @arg USART_IT_ORE_ER : OverRun Error interrupt if the EIE bit is set  
+	char ushTemp = USART_ReceiveData(USART2); //取出来扔掉
+	USART_ClearFlag(USART2, USART_FLAG_ORE);
+	}
+	
+	if(USART_GetFlagStatus(USART2, USART_FLAG_NE) != RESET)
+	{//同  @arg USART_IT_NE 	: Noise Error interrupt
+	USART_ClearFlag(USART2, USART_FLAG_NE);
+	}
+	
+	
+	if(USART_GetFlagStatus(USART2, USART_FLAG_FE) != RESET)
+	{//同	@arg USART_IT_FE	 : Framing Error interrupt
+	USART_ClearFlag(USART2, USART_FLAG_FE);
+	}
+	
+	if(USART_GetFlagStatus(USART2, USART_FLAG_PE) != RESET)
+	{//同  @arg USART_IT_PE 	: Parity Error interrupt
+	USART_ClearFlag(USART2, USART_FLAG_PE);
+	}
+
+    u8 data_receive;
+	data_receive=USART_ReceiveData(USART2);
+	if(Serial_Buffer_index < (SERIAL_BUFF_MAX - 1)) Serial_Buffer[Serial_Buffer_index++] = data_receive;
+	serial_cmd_status = SERIAL_CMD_RECV;
+	
+	//USART_SendData(USART2,data_receive);
+	//if(SMB_status == SMB_IDLE)read_request = 1;    
+}
+
+
 void  USB_LP_CAN1_RX0_IRQHandler(void)
 {
 	CanRxMsg  can_rx_one_frame; //定义接收数据变量

@@ -26,10 +26,10 @@ PUTCHAR_PROTOTYPE
 {
 /* Place your implementation of fputc here */
 /* e.g. write a character to the USART */
-USART_SendData(USART1, (u8) ch);
+USART_SendData(SERIAL_NAME, (u8) ch);
 
 /* Loop until the end of transmission */
-while(USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET)
+while(USART_GetFlagStatus(SERIAL_NAME, USART_FLAG_TC) == RESET)
 {
 }
 
@@ -246,10 +246,12 @@ static void clock_init(void)
     						//| RCC_APB2Periph_TIM1  
     						//| RCC_APB2Periph_TIM8  
     						| RCC_APB2Periph_USART1
+    						
                                                 ,ENABLE);
 	/* APB1 clock enable */
 	RCC_APB1PeriphClockCmd(	RCC_APB1Periph_I2C1
 							| RCC_APB1Periph_CAN1
+							| RCC_APB1Periph_USART2
 							//| RCC_APB1Periph_TIM2 
 							//| RCC_APB1Periph_TIM3 
 							//| RCC_APB1Periph_TIM4 
@@ -266,18 +268,18 @@ static void port_init(void)
 	GPIO_InitStructure.GPIO_Pin = LED0_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	//GPIO_Init(LED0_PORT,&GPIO_InitStructure);
+	GPIO_Init(LED0_PORT,&GPIO_InitStructure);
 
 	//USART
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
+	GPIO_InitStructure.GPIO_Pin = SERIAL_TX_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-	GPIO_Init(GPIOA, &GPIO_InitStructure);
+	GPIO_Init(SERIAL_TX_PORT, &GPIO_InitStructure);
 	
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
+	GPIO_InitStructure.GPIO_Pin = SERIAL_RX_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-	GPIO_Init(GPIOA, &GPIO_InitStructure);
+	GPIO_Init(SERIAL_RX_PORT, &GPIO_InitStructure);
 
 	//KEY PORT
 /*
@@ -326,7 +328,7 @@ static void port_init(void)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
 	GPIO_Init(SDA_PORT, &GPIO_InitStructure);
-
+	// MAG
 	GPIO_InitStructure.GPIO_Pin = MAG_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
@@ -410,12 +412,19 @@ void NVIC_init(void)
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
 	/**/
+#ifdef BOARD_HAND
 	NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
-
+#else	
+	NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+#endif
 	 // Enable CAN RX0 interrupt IRQ channel  //接收中断
 	NVIC_InitStructure.NVIC_IRQChannel = USB_LP_CAN1_RX0_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
@@ -443,13 +452,13 @@ void Serial_Init(void)
 	USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
 	USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
 
-	USART_Init(USART1, &USART_InitStructure);
-	USART_ITConfig(USART1,USART_IT_RXNE,ENABLE);
+	USART_Init(SERIAL_NAME, &USART_InitStructure);
+	USART_ITConfig(SERIAL_NAME,USART_IT_RXNE,ENABLE);
 	
-	USART_ITConfig(USART1, USART_IT_PE, ENABLE);	//开启PE错误接收中断Bit 8PEIE: PE interrupt enable
+	USART_ITConfig(SERIAL_NAME, USART_IT_PE, ENABLE);	//开启PE错误接收中断Bit 8PEIE: PE interrupt enable
 	
-	USART_ITConfig(USART1, USART_IT_ERR, ENABLE);
-	USART_Cmd(USART1, ENABLE);
+	USART_ITConfig(SERIAL_NAME, USART_IT_ERR, ENABLE);
+	USART_Cmd(SERIAL_NAME, ENABLE);
 }
 
 void Systick_init(void)
@@ -467,7 +476,7 @@ void Systick_Procedure(void)
 	static unsigned char led_status = 1;
 	static unsigned long int counter;
 	
-	/*
+	
 	
 	if(counter < 500){
 		counter++;
@@ -487,7 +496,7 @@ void Systick_Procedure(void)
 		}
 			
 	}
-	*/
+	
 
 	if(counter % 5 == 0){
 		read_request = 1;
@@ -514,7 +523,7 @@ void Systick_Procedure(void)
 			soft_timer.status = TIMER_STATUS_UP;
 	}
 	
-	counter++;
+	
 	
 }
 
