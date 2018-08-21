@@ -66,7 +66,7 @@ void Serial_cmd_parse(void){
 	unsigned int dat;
 	if(Serial_Buffer[0]!= 0x55 || Serial_Buffer[1]!= 0xaa 
 		|| Serial_Buffer[5]!= 0xaa || Serial_Buffer[6]!= 0x55 ){
-		printf("bad command,%d\r\n",PWMCnt);
+		printf("bad command\r\n");
 		serial_cmd_status = SERIAL_CMD_IDLE;
 		Serial_Buffer_index = 0;
 		return;
@@ -87,7 +87,7 @@ void Serial_cmd_parse(void){
 			printf("set data offset = %d\r\n",dat);
 		break;
 		default:
-			printf("bad command,%d\r\n",PWMCnt);
+			printf("bad command\r\n");
 		break;
 	}
 	

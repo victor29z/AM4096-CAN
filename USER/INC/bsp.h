@@ -65,6 +65,11 @@
 
 #endif
 
+
+#define HAND_PWM_CANID	0x78
+#define HAND_PWM_LH		1
+#define HAND_PWM_RH		2
+
 /* Private prototypes
 --------------------------------------------*/
 

@@ -22,6 +22,8 @@ extern unsigned int CPU_ID0;
 extern unsigned int CPU_ID1;
 extern unsigned int CPU_ID2;
 extern unsigned int can_id;
+
+u32 slave_id = HAND_PWM_CANID;
 //extern __no_init const unsigned int can_id_mem @ 0x0800FC00;
 
 
@@ -58,10 +60,10 @@ void CAN_init(void)
 	CAN_FilterInitStructure.CAN_FilterMode=CAN_FilterMode_IdMask;	//标识符屏蔽位模式
 	CAN_FilterInitStructure.CAN_FilterScale=CAN_FilterScale_32bit;	//32位过滤器
 
-	CAN_FilterInitStructure.CAN_FilterIdHigh =CAN_BCST_ID << 5;	//接收板的CAN地址
-	CAN_FilterInitStructure.CAN_FilterIdLow = 0x0004;				//选择扩展标识符（见手册CAN_RIxR）
-	CAN_FilterInitStructure.CAN_FilterMaskIdHigh = 0;//0xffff;			//接收板的地址要和tempid一致
-	CAN_FilterInitStructure.CAN_FilterMaskIdLow = 0x0000;			//下面有介绍
+	CAN_FilterInitStructure.CAN_FilterIdHigh =(((u32)slave_id<<21)&0xffff0000)>>16;;	//接收板的CAN地址
+	CAN_FilterInitStructure.CAN_FilterIdLow =  (((u32)slave_id<<21)|CAN_ID_STD|CAN_RTR_DATA)&0xffff;				//选择扩展标识符（见手册CAN_RIxR）
+	CAN_FilterInitStructure.CAN_FilterMaskIdHigh = 0xFFFF;//0xffff;			//接收板的地址要和tempid一致
+	CAN_FilterInitStructure.CAN_FilterMaskIdLow = 0xFFFF;			//下面有介绍
 
 	CAN_FilterInitStructure.CAN_FilterFIFOAssignment=CAN_FIFO0; 	//选择FIFO0
 	CAN_FilterInitStructure.CAN_FilterActivation=ENABLE;			//使能过滤器

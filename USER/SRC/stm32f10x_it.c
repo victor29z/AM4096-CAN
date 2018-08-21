@@ -48,6 +48,7 @@ extern unsigned char new_can_data;
 extern unsigned int serial_cmd_timeout;
 extern unsigned char serial_cmd_status;
 extern volatile unsigned int PWMCnt;
+extern CanRxMsg can_rx_msg;
 /* Private functions ---------------------------------------------------------*/
 
 /******************************************************************************/
@@ -215,10 +216,6 @@ void USART1_IRQHandler(void)
 	if(Serial_Buffer_index < (SERIAL_BUFF_MAX - 1)) Serial_Buffer[Serial_Buffer_index++] = data_receive;
 	serial_cmd_status = SERIAL_CMD_RECV;
 
-	if(data_receive == '+')
-		if(PWMCnt < 99) PWMCnt++;
-	if(data_receive == '-')
-		if(PWMCnt >0) PWMCnt--;
 		
  
 }
@@ -254,17 +251,14 @@ void USART2_IRQHandler(void)
 	if(Serial_Buffer_index < (SERIAL_BUFF_MAX - 1)) Serial_Buffer[Serial_Buffer_index++] = data_receive;
 	serial_cmd_status = SERIAL_CMD_RECV;
 	
-	//USART_SendData(USART2,data_receive);
-	//if(SMB_status == SMB_IDLE)read_request = 1;    
+	    
 }
 
 
 void  USB_LP_CAN1_RX0_IRQHandler(void)
 {
-	CanRxMsg  can_rx_one_frame; //定义接收数据变量
-	CAN_Receive(CAN1,CAN_FIFO0,&can_rx_one_frame);//接收数据函数
-	Receive_data = can_rx_one_frame.Data[0];//接收到的数据转存给变量Receive_data
-	memcpy(can_data, can_rx_one_frame.Data, can_rx_one_frame.DLC);
+	
+	CAN_Receive(CAN1,CAN_FIFO0,&can_rx_msg);//接收数据函数
 	new_can_data = 1;
 	CAN_FIFORelease(CAN1,CAN_FIFO0);// 释放一 FIFO0
 }

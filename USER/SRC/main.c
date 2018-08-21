@@ -71,6 +71,10 @@ unsigned char serial_cmd_status = SERIAL_CMD_IDLE;
 volatile unsigned int ADC1Result;
 volatile unsigned int PWMCnt = 0;
 
+CanRxMsg can_rx_msg;
+
+const unsigned char hand_lr = HAND_PWM_LH;	//used to specify left or right hand 
+
 /*Extern varibles
 ---------------------------------------------*/
 
@@ -176,6 +180,17 @@ int main(void)
 
 		if(serial_cmd_status == SERIAL_CMD_FINISHED){
 			Serial_cmd_parse();
+		}
+		if(new_can_data){
+			unsigned char can_pwm;
+			new_can_data = 0;
+			
+			if(hand_lr == can_rx_msg.Data[0]){	// if the hand id matched 
+				can_pwm = can_rx_msg.Data[1];
+				if(can_pwm > 99) can_pwm = 99;
+				PWMCnt = can_pwm;
+			}
+			
 		}
 		
 		
@@ -553,7 +568,7 @@ void Systick_Procedure(void)
 			soft_timer.status = TIMER_STATUS_UP;
 	}
 
-	TIM_SetCompare2(TIM2, PWMCnt);
+	TIM_SetCompare2(TIM2, 99 - PWMCnt);
 	
 	
 	
@@ -688,7 +703,7 @@ void TIM_PWM_Config(void){
 
 	TIM_Cmd(TIM2, ENABLE);	//使能定时器TIM2
 
-	TIM_SetCompare2(TIM2, 0);//得到占空比为50%的pwm波形
+	TIM_SetCompare2(TIM2, 99);//得到占空比为50%的pwm波形
 }
 
 void Set_Data_Offset(int offset)
