@@ -41,6 +41,7 @@ void Serial_Init(void);
 unsigned int get_ssi_value(void);
 void ADC_Configuration(void);
 void Set_Data_Offset(int offset);
+void TIM_PWM_Config(void);
 
 
 

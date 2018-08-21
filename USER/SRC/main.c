@@ -13,6 +13,8 @@
 #include "stm32f10x_i2c.h"
 #include "stm32f10x_adc.h"
 #include "stm32f10x_dma.h"
+#include "stm32f10x_tim.h"
+
 
 #include "can_user.h"
 
@@ -67,6 +69,7 @@ unsigned int serial_cmd_timeout = 0;
 unsigned char serial_cmd_status = SERIAL_CMD_IDLE;
 
 volatile unsigned int ADC1Result;
+volatile unsigned int PWMCnt = 0;
 
 /*Extern varibles
 ---------------------------------------------*/
@@ -232,7 +235,7 @@ static void clock_init(void)
 /*Enable used periph clocks*/
 	/* APB2 clock enable */
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR , ENABLE);//enable rtc clock
-    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
+    //RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
     RCC_APB2PeriphClockCmd(	RCC_APB2Periph_GPIOA 
     						| RCC_APB2Periph_GPIOB 
     						| RCC_APB2Periph_GPIOC 
@@ -241,17 +244,17 @@ static void clock_init(void)
     						//| RCC_APB2Periph_GPIOF 
     						//| RCC_APB2Periph_GPIOG 
     						| RCC_APB2Periph_AFIO  
-    						| RCC_APB2Periph_ADC1  
+    						//| RCC_APB2Periph_ADC1  
     						//| RCC_APB2Periph_ADC3  
     						//| RCC_APB2Periph_TIM1  
     						//| RCC_APB2Periph_TIM8  
-    						| RCC_APB2Periph_USART1
+    						//| RCC_APB2Periph_USART1
     						
                                                 ,ENABLE);
 	/* APB1 clock enable */
 	RCC_APB1PeriphClockCmd(	RCC_APB1Periph_I2C1
 							| RCC_APB1Periph_CAN1
-							| RCC_APB1Periph_USART2
+							//| RCC_APB1Periph_USART2
 							//| RCC_APB1Periph_TIM2 
 							//| RCC_APB1Periph_TIM3 
 							//| RCC_APB1Periph_TIM4 
@@ -346,10 +349,29 @@ static void port_init(void)
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
 	//ADC
+	/*
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
+	*/
+#ifdef BOARD_HAND
+	GPIO_InitStructure.GPIO_Pin = IN1_PIN;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+	GPIO_Init(IN1_PORT, &GPIO_InitStructure);
+
+	
+	
+	GPIO_InitStructure.GPIO_Pin = IN2_PIN;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(IN2_PORT, &GPIO_InitStructure);
+
+	GPIO_ResetBits(IN2_PORT,IN2_PIN);
+	
+#endif
+	
 }
 
 static void hw_init(void)
@@ -367,8 +389,10 @@ static void hw_init(void)
 	can_id = (*(unsigned int *)(DATA_SPACE_BASE + DATA_OFFSET_CANID))& 0x7ff;
 	can_id = can_id_mem & 0x7ff;
 	FLASH_Lock();
-	ADC_Configuration();
-	
+	//ADC_Configuration();
+#ifdef BOARD_HAND	
+	TIM_PWM_Config();
+#endif
 }
 
 void NVIC_GenerateSystemReset(void)
@@ -443,6 +467,12 @@ void NVIC_init(void)
 
 void Serial_Init(void)
 {
+#ifdef BOARD_HAND
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1,ENABLE);
+#else
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2,ENABLE);
+#endif
+	
 	USART_InitTypeDef USART_InitStructure;
 	
 	USART_InitStructure.USART_BaudRate = 9600;
@@ -522,6 +552,8 @@ void Systick_Procedure(void)
 		else
 			soft_timer.status = TIMER_STATUS_UP;
 	}
+
+	TIM_SetCompare2(TIM2, PWMCnt);
 	
 	
 	
@@ -637,6 +669,27 @@ void ADC_Configuration(void)
 	
 }
 
+void TIM_PWM_Config(void){
+	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;//定义初始化结构体
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE); //使能定时器2时钟
+	//初始化TIM2
+	TIM_TimeBaseStructure.TIM_Period = 99; //自动重装载寄存器的值
+	TIM_TimeBaseStructure.TIM_Prescaler =71; //TIMX预分频的值  频率为：72*10^6/(99+1)/(143+1)=5000Hz
+	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1; //时钟分割
+	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;  //向上计数
+	TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure); //根据以上功能对定时器进行初始化
+
+	TIM_OCInitTypeDef  TIM_OCInitStructure;//定义结构体
+	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;//选择定时器模式，TIM脉冲宽度调制模式2
+	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;//比较输出使能
+	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_Low;//输出比较极性低
+	TIM_OC2Init(TIM2, &TIM_OCInitStructure);//根据结构体信息进行初始化
+	//TIM_OC1PreloadConfig(TIM2, TIM_OCPreload_Enable);  //使能定时器TIM2在CCR2上的预装载值
+
+	TIM_Cmd(TIM2, ENABLE);	//使能定时器TIM2
+
+	TIM_SetCompare2(TIM2, 0);//得到占空比为50%的pwm波形
+}
 
 void Set_Data_Offset(int offset)
 {

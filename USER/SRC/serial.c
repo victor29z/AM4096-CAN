@@ -10,6 +10,7 @@ unsigned char Serial_Buffer_index = 0;
 unsigned char Console_Status = CONSOLE_STAT_MENU;
 extern unsigned int serial_cmd_timeout;
 extern unsigned char serial_cmd_status;
+extern unsigned int PWMCnt;
 void Show_Menu(void)
 {
 
@@ -65,7 +66,7 @@ void Serial_cmd_parse(void){
 	unsigned int dat;
 	if(Serial_Buffer[0]!= 0x55 || Serial_Buffer[1]!= 0xaa 
 		|| Serial_Buffer[5]!= 0xaa || Serial_Buffer[6]!= 0x55 ){
-		printf("bad command\r\n");
+		printf("bad command,%d\r\n",PWMCnt);
 		serial_cmd_status = SERIAL_CMD_IDLE;
 		Serial_Buffer_index = 0;
 		return;
@@ -86,7 +87,7 @@ void Serial_cmd_parse(void){
 			printf("set data offset = %d\r\n",dat);
 		break;
 		default:
-			printf("bad command\r\n");
+			printf("bad command,%d\r\n",PWMCnt);
 		break;
 	}
 	
@@ -95,5 +96,4 @@ void Serial_cmd_parse(void){
 		
 
 }
-
 

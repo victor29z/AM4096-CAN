@@ -47,6 +47,7 @@ extern unsigned char can_data[8];
 extern unsigned char new_can_data;
 extern unsigned int serial_cmd_timeout;
 extern unsigned char serial_cmd_status;
+extern volatile unsigned int PWMCnt;
 /* Private functions ---------------------------------------------------------*/
 
 /******************************************************************************/
@@ -213,9 +214,13 @@ void USART1_IRQHandler(void)
 	data_receive=USART_ReceiveData(USART1);
 	if(Serial_Buffer_index < (SERIAL_BUFF_MAX - 1)) Serial_Buffer[Serial_Buffer_index++] = data_receive;
 	serial_cmd_status = SERIAL_CMD_RECV;
-	
-	//USART_SendData(USART1,data_receive);
-	//if(SMB_status == SMB_IDLE)read_request = 1;    
+
+	if(data_receive == '+')
+		if(PWMCnt < 99) PWMCnt++;
+	if(data_receive == '-')
+		if(PWMCnt >0) PWMCnt--;
+		
+ 
 }
 
 void USART2_IRQHandler(void)
