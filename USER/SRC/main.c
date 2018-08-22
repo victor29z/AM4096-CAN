@@ -99,8 +99,12 @@ int main(void)
 	
 	hw_init();
 	SMBus_Init();
-
-	printf("AM4096-can board, id = 0x%x\r\n",can_id);
+#ifdef BOARD_HAND
+	printf("AM4096-can hand board, id = 0x%x\r\n",can_id);
+#else
+	printf("AM4096-can wrist board, id = 0x%x\r\n",can_id);
+#endif
+	
 
 	
 	
