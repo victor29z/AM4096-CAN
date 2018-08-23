@@ -693,7 +693,7 @@ void TIM_PWM_Config(void){
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE); //使能定时器2时钟
 	//初始化TIM2
 	TIM_TimeBaseStructure.TIM_Period = 99; //自动重装载寄存器的值
-	TIM_TimeBaseStructure.TIM_Prescaler =71; //TIMX预分频的值  频率为：72*10^6/(99+1)/(143+1)=5000Hz
+	TIM_TimeBaseStructure.TIM_Prescaler =35; //TIMX预分频的值  频率为：72*10^6/(99+1)/(143+1)=5000Hz
 	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1; //时钟分割
 	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;  //向上计数
 	TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure); //根据以上功能对定时器进行初始化
