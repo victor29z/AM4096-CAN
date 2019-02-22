@@ -45,15 +45,15 @@ void CAN_init(void)
 	CAN_InitStructure.CAN_TTCM=DISABLE;
 	CAN_InitStructure.CAN_ABOM=ENABLE;
 	CAN_InitStructure.CAN_AWUM=ENABLE;
-	CAN_InitStructure.CAN_NART=ENABLE;
+	CAN_InitStructure.CAN_NART=DISABLE; // enable auto re-transmit mode
 	CAN_InitStructure.CAN_RFLM=DISABLE;
 	CAN_InitStructure.CAN_TXFP=DISABLE;
 	CAN_InitStructure.CAN_Mode=CAN_Mode_Normal;// 正常模式
 	CAN_InitStructure.CAN_SJW=CAN_SJW_1tq;
-	CAN_InitStructure.CAN_BS1=CAN_BS1_8tq;
-	CAN_InitStructure.CAN_BS2=CAN_BS2_7tq;
+	CAN_InitStructure.CAN_BS1=CAN_BS1_6tq;
+	CAN_InitStructure.CAN_BS2=CAN_BS2_5tq;
 	//CAN bit rate = RCC_APB1PeriphClock/CAN_SJW+CAN_BS1+CAN_BS2/CAN_Prescaler; 
-	CAN_InitStructure.CAN_Prescaler=90; //72MHz/(1+8+7)/90 =50Kbps
+	CAN_InitStructure.CAN_Prescaler=24;//72MHz/(1+6+5)/48 =125Kbps
 	CAN_Init(CAN1,&CAN_InitStructure);
 	// CAN filter init 
 	CAN_FilterInitStructure.CAN_FilterNumber=0; 					//选择过滤器0

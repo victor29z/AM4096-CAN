@@ -1,6 +1,6 @@
 #ifndef __BSP_H__
 #define __BSP_H__
-#define BOARD_HAND 1
+//#define BOARD_HAND 1
 
 /* Micro defines
 --------------------------------------------*/

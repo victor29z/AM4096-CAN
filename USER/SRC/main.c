@@ -95,7 +95,7 @@ int main(void)
 	CPU_ID0 = *(u32*)(0x1FFFF7E8);	 
 	CPU_ID1 = *(u32*)(0x1FFFF7EC);   
 	CPU_ID2 = *(u32*)(0x1FFFF7F0);
-	Delay_nms(CPU_ID0 & 0x1ff);
+	
 	
 	hw_init();
 	SMBus_Init();
@@ -151,6 +151,7 @@ int main(void)
 
 	
 	Systick_init();
+	Delay_nms((can_id & 0x0f) * 3);// different start time to avoid message collision
 	while (1)
 	{	
 		MAG_Status = GPIO_ReadInputDataBit(MAG_PORT,MAG_PIN);
@@ -547,7 +548,7 @@ void Systick_Procedure(void)
 	}
 	
 
-	if(counter % 5 == 0){
+	if(counter % 30 == 0){
 		read_request = 1;
 	}
 
