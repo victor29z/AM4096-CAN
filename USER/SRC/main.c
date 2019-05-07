@@ -53,6 +53,8 @@ unsigned char read_request = 0;
 unsigned char Receive_data = 0;
 unsigned char can_data[8];
 unsigned char new_can_data = 0;
+unsigned char new_can_rtr = 0;
+
 volatile unsigned int CPU_ID0;
 volatile unsigned int CPU_ID1;
 volatile unsigned int CPU_ID2;
@@ -151,7 +153,8 @@ int main(void)
 
 	
 	Systick_init();
-	Delay_nms((can_id & 0x0f) * 3);// different start time to avoid message collision
+	soft_timer.status = TIMER_STATUS_STOP;
+	Delay_nms((can_id % 10) * 275 + (can_id % 100) * 33);// different start time to avoid message collision
 	while (1)
 	{	
 		MAG_Status = GPIO_ReadInputDataBit(MAG_PORT,MAG_PIN);
@@ -161,11 +164,20 @@ int main(void)
 			
 			
 			ssi_res = get_ssi_value();
+			
+				
 			//printf("ssi: %d, mag: %d\r\n",ssi_res, MAG_Status);
 			Can_Send_Temp(ssi_res,MAG_Status,can_id);
 			
 
 		}
+		// use rtr to retrieve data
+		/*
+		if(new_can_rtr){
+				Can_Send_Temp(ssi_res,MAG_Status,can_id);
+				new_can_rtr = 0;
+		}
+		*/
 		if(SMB_status == SMB_R_FINISHED)
 		{
 
@@ -189,6 +201,7 @@ int main(void)
 		if(new_can_data){
 			unsigned char can_pwm;
 			new_can_data = 0;
+			
 			
 			if(hand_lr == can_rx_msg.Data[0]){	// if the hand id matched 
 				can_pwm = can_rx_msg.Data[1];
@@ -365,6 +378,7 @@ static void port_init(void)
 	
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	//GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
 	GPIO_Init(GPIOA, &GPIO_InitStructure);
 
@@ -401,13 +415,14 @@ static void hw_init(void)
 	Serial_Init();
 	//Systick_init();
 	NVIC_init();
-	CAN_init();
+	
 	//Check_Flash();
 	asm("CPSIE   I");	//enable cpu interrupt
 	
 	FLASH_Unlock();
 	can_id = (*(unsigned int *)(DATA_SPACE_BASE + DATA_OFFSET_CANID))& 0x7ff;
 	can_id = can_id_mem & 0x7ff;
+	CAN_init();
 	FLASH_Lock();
 	//ADC_Configuration();
 #ifdef BOARD_HAND	

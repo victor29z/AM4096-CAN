@@ -53,17 +53,25 @@ void CAN_init(void)
 	CAN_InitStructure.CAN_BS1=CAN_BS1_6tq;
 	CAN_InitStructure.CAN_BS2=CAN_BS2_5tq;
 	//CAN bit rate = RCC_APB1PeriphClock/CAN_SJW+CAN_BS1+CAN_BS2/CAN_Prescaler; 
-	CAN_InitStructure.CAN_Prescaler=24;//72MHz/(1+6+5)/48 =125Kbps
+	CAN_InitStructure.CAN_Prescaler=6;//72MHz/(1+6+5)/48 =125Kbps
 	CAN_Init(CAN1,&CAN_InitStructure);
 	// CAN filter init 
 	CAN_FilterInitStructure.CAN_FilterNumber=0; 					//选择过滤器0
-	CAN_FilterInitStructure.CAN_FilterMode=CAN_FilterMode_IdMask;	//标识符屏蔽位模式
+	//CAN_FilterInitStructure.CAN_FilterMode=CAN_FilterMode_IdMask;	//标识符屏蔽位模式
+	CAN_FilterInitStructure.CAN_FilterMode=CAN_FilterMode_IdList;
 	CAN_FilterInitStructure.CAN_FilterScale=CAN_FilterScale_32bit;	//32位过滤器
 
-	CAN_FilterInitStructure.CAN_FilterIdHigh =(((u32)slave_id<<21)&0xffff0000)>>16;;	//接收板的CAN地址
-	CAN_FilterInitStructure.CAN_FilterIdLow =  (((u32)slave_id<<21)|CAN_ID_STD|CAN_RTR_DATA)&0xffff;				//选择扩展标识符（见手册CAN_RIxR）
-	CAN_FilterInitStructure.CAN_FilterMaskIdHigh = 0xFFFF;//0xffff;			//接收板的地址要和tempid一致
-	CAN_FilterInitStructure.CAN_FilterMaskIdLow = 0xFFFF;			//下面有介绍
+
+CAN_FilterInitStructure.CAN_FilterIdHigh =(((u32)(slave_id )<<21)&0xffff0000)>>16;;	//接收板的CAN地址
+CAN_FilterInitStructure.CAN_FilterIdLow =  (((u32)(slave_id)<<21)|CAN_ID_STD|CAN_RTR_DATA)&0xffff;				//选择扩展标识符（见手册CAN_RIxR）
+//CAN_FilterInitStructure.CAN_FilterIdHigh =(u16)slave_id << 5;	//接收板的CAN地址
+//CAN_FilterInitStructure.CAN_FilterIdLow = 0 | CAN_ID_STD;				//选择扩展标识符（见手册CAN_RIxR）
+
+CAN_FilterInitStructure.CAN_FilterMaskIdHigh =(((u32)(can_id )<<21)&0xffff0000)>>16;;	//接收板的CAN地址
+CAN_FilterInitStructure.CAN_FilterMaskIdLow =  (((u32)(can_id)<<21)|CAN_ID_STD|CAN_RTR_REMOTE)&0xffff;				//选择扩展标识符（见手册CAN_RIxR）
+
+//	CAN_FilterInitStructure.CAN_FilterMaskIdHigh = 0xFFFF;//0xffff;			//接收板的地址要和tempid一致
+//	CAN_FilterInitStructure.CAN_FilterMaskIdLow = 0xFFFF;			//下面有介绍
 
 	CAN_FilterInitStructure.CAN_FilterFIFOAssignment=CAN_FIFO0; 	//选择FIFO0
 	CAN_FilterInitStructure.CAN_FilterActivation=ENABLE;			//使能过滤器

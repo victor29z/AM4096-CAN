@@ -24,6 +24,7 @@
 #include "smbus.h"
 #include "serial.h"
 #include <string.h>
+#include "can_user.h"
 
 
 
@@ -45,6 +46,8 @@ extern unsigned char SMB_status;
 extern unsigned char Receive_data;
 extern unsigned char can_data[8];
 extern unsigned char new_can_data;
+extern unsigned char new_can_rtr;
+
 extern unsigned int serial_cmd_timeout;
 extern unsigned char serial_cmd_status;
 extern volatile unsigned int PWMCnt;
@@ -259,7 +262,10 @@ void  USB_LP_CAN1_RX0_IRQHandler(void)
 {
 	
 	CAN_Receive(CAN1,CAN_FIFO0,&can_rx_msg);//接收数据函数
-	new_can_data = 1;
+	if(can_rx_msg.RTR)
+		new_can_rtr = 1;
+	else
+		new_can_data = 1;
 	CAN_FIFORelease(CAN1,CAN_FIFO0);// 释放一 FIFO0
 }
 
