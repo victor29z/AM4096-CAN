@@ -77,6 +77,9 @@ CanRxMsg can_rx_msg;
 
 const unsigned char hand_lr = HAND_PWM_LH;	//used to specify left or right hand 
 
+u32 ssi_res;	// used to store the encoder result from ssi interface
+u32 key_res;		// used to store the key value
+
 /*Extern varibles
 ---------------------------------------------*/
 
@@ -90,7 +93,7 @@ int main(void)
 {
 /*Local varibles declaration*/
 
-	unsigned int ssi_res;
+	
 	
 	
 /*System Initial*/
@@ -100,56 +103,9 @@ int main(void)
 	
 	
 	hw_init();
-	SMBus_Init();
-#ifdef BOARD_HAND
-	printf("AM4096-can hand board, id = 0x%x\r\n",can_id);
-#else
-	printf("AM4096-can wrist board, id = 0x%x\r\n",can_id);
-#endif
-	
+	//SMBus_Init();
 
-	
-	
-	SMB_Write_Word(50,TYPE_RAM,0x0080);
-	while(SMB_status != SMB_W_FINISHED);
-	SMB_status = SMB_IDLE;
-
-	SMB_Write_Word(51,TYPE_RAM,0x1800);
-	while(SMB_status != SMB_W_FINISHED);
-	SMB_status = SMB_IDLE;
-	
-	
-	
-	SMB_status = SMB_IDLE;
-	SMB_Read_Word(34,TYPE_RAM);
-	while(SMB_status != SMB_R_FINISHED);
-	printf("reg34 = 0x%x\r\n",SMB_data_buffer.data);
-	SMB_status = SMB_IDLE;
-
-	SMB_Read_Word(35,TYPE_RAM);
-	while(SMB_status != SMB_R_FINISHED);
-	printf("reg35 = 0x%x\r\n",SMB_data_buffer.data);
-	SMB_status = SMB_IDLE;
-
-	SMB_Read_Word(48,TYPE_RAM);
-	while(SMB_status != SMB_R_FINISHED);
-	printf("reg48 = 0x%x\r\n",SMB_data_buffer.data);
-	SMB_status = SMB_IDLE;
-
-	SMB_Read_Word(49,TYPE_RAM);
-	while(SMB_status != SMB_R_FINISHED);
-	printf("reg49 = 0x%x\r\n",SMB_data_buffer.data);
-	SMB_status = SMB_IDLE;
-
-	SMB_Read_Word(50,TYPE_RAM);
-	while(SMB_status != SMB_R_FINISHED);
-	printf("reg50 = 0x%x\r\n",SMB_data_buffer.data);
-	SMB_status = SMB_IDLE;
-	
-	SMB_Read_Word(51,TYPE_RAM);
-	while(SMB_status != SMB_R_FINISHED);
-	printf("reg51 = 0x%x\r\n",SMB_data_buffer.data);
-	SMB_status = SMB_IDLE;
+	printf("joint board, id = 0x%x\r\n",can_id);
 
 	
 	Systick_init();
@@ -157,15 +113,20 @@ int main(void)
 	Delay_nms((can_id % 10) * 275 + (can_id % 100) * 33);// different start time to avoid message collision
 	while (1)
 	{	
-		MAG_Status = GPIO_ReadInputDataBit(MAG_PORT,MAG_PIN);
-		if(read_request == 1 && SMB_status == SMB_IDLE){
+		//MAG_Status = GPIO_ReadInputDataBit(MAG_PORT,MAG_PIN);
+		if(read_request == 1){
 			read_request = 0;
 			
 			
-			
+#ifdef USE_SSI
 			ssi_res = get_ssi_value();
-			
-				
+#else
+			ssi_res = ENC_TIM->CNT;			
+#endif
+			key_res = 0;
+			key_res = get_key_value();
+			key_res <<= 28;  // use the highest 4 bits of can message to store the key value
+			ssi_res |= key_res;
 			//printf("ssi: %d, mag: %d\r\n",ssi_res, MAG_Status);
 			Can_Send_Temp(ssi_res,MAG_Status,can_id);
 			
@@ -318,7 +279,7 @@ static void port_init(void)
 	GPIO_Init(SERIAL_RX_PORT, &GPIO_InitStructure);
 
 	//KEY PORT
-/*
+
 	GPIO_InitStructure.GPIO_Pin = KEY1_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
@@ -338,7 +299,7 @@ static void port_init(void)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
 	GPIO_Init(KEY4_PORT,&GPIO_InitStructure);
-	*/
+#ifdef USE_SSI	
 	//ssi port
 	GPIO_InitStructure.GPIO_Pin = SSICLK_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
@@ -352,8 +313,23 @@ static void port_init(void)
 
 	
 	GPIO_SetBits(SSICLK_PORT,SSICLK_PIN);
+#else
+	GPIO_InitStructure.GPIO_Pin = ENCA_PIN;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+	GPIO_Init(ENCA_PORT,&GPIO_InitStructure);
 
-	
+	GPIO_InitStructure.GPIO_Pin = ENCB_PIN;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+	GPIO_Init(ENCB_PORT,&GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = ENCZ_PIN;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+	GPIO_Init(ENCZ_PORT,&GPIO_InitStructure);
+#endif
+/*	
 	//I2C port
 	GPIO_InitStructure.GPIO_Pin = SCL_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
@@ -369,40 +345,34 @@ static void port_init(void)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 	GPIO_Init(MAG_PORT,&GPIO_InitStructure);
-
+*/
 	//CAN
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11;
+	GPIO_InitStructure.GPIO_Pin = CAN_RX_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
-	GPIO_Init(GPIOA, &GPIO_InitStructure);
+	GPIO_Init(CAN_RX_PORT, &GPIO_InitStructure);
 	
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12;
+	GPIO_InitStructure.GPIO_Pin = CAN_TX_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	//GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-	GPIO_Init(GPIOA, &GPIO_InitStructure);
+	GPIO_Init(CAN_TX_PORT, &GPIO_InitStructure);
 
-	//ADC
-	/*
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
-	GPIO_Init(GPIOA, &GPIO_InitStructure);
-	*/
+
 #ifdef BOARD_HAND
-	GPIO_InitStructure.GPIO_Pin = IN1_PIN;
+	GPIO_InitStructure.GPIO_Pin = PWM1_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-	GPIO_Init(IN1_PORT, &GPIO_InitStructure);
+	GPIO_Init(PWM1_PORT, &GPIO_InitStructure);
 
 	
 	
-	GPIO_InitStructure.GPIO_Pin = IN2_PIN;
+	GPIO_InitStructure.GPIO_Pin = PWM2_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_Init(IN2_PORT, &GPIO_InitStructure);
+	GPIO_Init(PWM2_PORT, &GPIO_InitStructure);
 
-	GPIO_ResetBits(IN2_PORT,IN2_PIN);
+	GPIO_ResetBits(PWM2_PORT,PWM2_PIN);
 	
 #endif
 	
@@ -427,6 +397,10 @@ static void hw_init(void)
 	//ADC_Configuration();
 #ifdef BOARD_HAND	
 	TIM_PWM_Config();
+#endif
+#ifdef USE_SSI
+#else
+	TIM_ENC_Config();
 #endif
 }
 
@@ -464,26 +438,20 @@ void NVIC_init(void)
 {
 	NVIC_InitTypeDef NVIC_InitStructure;
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
-	
+	/*
 	NVIC_InitStructure.NVIC_IRQChannel = I2C1_EV_IRQn;                     //NVIC配置 
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
-	/**/
-#ifdef BOARD_HAND
+	*/
+
 	NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
-#else	
-	NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_Init(&NVIC_InitStructure);
-#endif
+
 	 // Enable CAN RX0 interrupt IRQ channel  //接收中断
 	NVIC_InitStructure.NVIC_IRQChannel = USB_LP_CAN1_RX0_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
@@ -502,11 +470,9 @@ void NVIC_init(void)
 
 void Serial_Init(void)
 {
-#ifdef BOARD_HAND
+
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1,ENABLE);
-#else
-	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2,ENABLE);
-#endif
+
 	
 	USART_InitTypeDef USART_InitStructure;
 	
@@ -588,7 +554,7 @@ void Systick_Procedure(void)
 			soft_timer.status = TIMER_STATUS_UP;
 	}
 
-	TIM_SetCompare2(TIM2, 99 - PWMCnt);
+	TIM_SetCompare2(TIM2, PWMCnt);
 	
 	
 	
@@ -605,8 +571,9 @@ void Delay_nms(unsigned int n)
 	soft_timer.status = TIMER_STATUS_STOP;
 }
 
-unsigned int get_ssi_value(void){
-	unsigned int tmp = 0;
+u32 get_ssi_value(void){
+	u32 tmp = 0;
+	
 	unsigned char i;
 	volatile int t;
 	asm("CPSID   I");	//disable cpu interrupt
@@ -614,7 +581,7 @@ unsigned int get_ssi_value(void){
 	//t = GPIO_ReadInputDataBit(SSIDAT_PORT,SSIDAT_PIN);
 	GPIO_ResetBits(SSICLK_PORT,SSICLK_PIN);
 	//t = GPIO_ReadInputDataBit(SSIDAT_PORT,SSIDAT_PIN);
-	for(i = 0; i < 13; i++){
+	for(i = 0; i < SSI_DATA_LEN; i++){
 
 		GPIO_SetBits(SSICLK_PORT,SSICLK_PIN);
 		tmp <<= 1;
@@ -623,19 +590,33 @@ unsigned int get_ssi_value(void){
 		GPIO_ResetBits(SSICLK_PORT,SSICLK_PIN);
 		if(GPIO_ReadInputDataBit(SSIDAT_PORT,SSIDAT_PIN))
 			
-			tmp |= 0x0001;
+			tmp |= 0x00000001;
 		else
-			tmp &= 0xfffe;
+			tmp &= 0xfffffffe;
 
 	}
 	GPIO_SetBits(SSICLK_PORT,SSICLK_PIN);
 	while(!GPIO_ReadInputDataBit(SSIDAT_PORT,SSIDAT_PIN));
 	asm("CPSIE   I");	//enable cpu interrupt
-	tmp >>=1;
+	//ret = tmp/2;
 	return tmp;
 
 }
 
+u8 get_key_value(void){
+	u8 result = 0;
+	if(!GPIO_ReadInputDataBit(KEY1_PORT,KEY1_PIN))
+		result |= 0x01;
+	if(!GPIO_ReadInputDataBit(KEY2_PORT,KEY2_PIN))
+		result |= 0x02;
+	if(!GPIO_ReadInputDataBit(KEY3_PORT,KEY3_PIN))
+		result |= 0x04;
+	if(!GPIO_ReadInputDataBit(KEY4_PORT,KEY4_PIN))
+		result |= 0x08;
+
+	return result;
+
+}
 
 void ADC_Configuration(void)
 {
@@ -706,24 +687,54 @@ void ADC_Configuration(void)
 
 void TIM_PWM_Config(void){
 	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;//定义初始化结构体
-	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE); //使能定时器2时钟
+	RCC_APB1PeriphClockCmd(PWM_TIM_CLK, ENABLE); //使能定时器2时钟
 	//初始化TIM2
 	TIM_TimeBaseStructure.TIM_Period = 99; //自动重装载寄存器的值
 	TIM_TimeBaseStructure.TIM_Prescaler =35; //TIMX预分频的值  频率为：72*10^6/(99+1)/(143+1)=5000Hz
 	TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1; //时钟分割
 	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;  //向上计数
-	TIM_TimeBaseInit(TIM2, &TIM_TimeBaseStructure); //根据以上功能对定时器进行初始化
+	TIM_TimeBaseInit(PWM_TIM, &TIM_TimeBaseStructure); //根据以上功能对定时器进行初始化
 
 	TIM_OCInitTypeDef  TIM_OCInitStructure;//定义结构体
 	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_PWM1;//选择定时器模式，TIM脉冲宽度调制模式2
 	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;//比较输出使能
 	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_Low;//输出比较极性低
-	TIM_OC2Init(TIM2, &TIM_OCInitStructure);//根据结构体信息进行初始化
+	TIM_OC2Init(PWM_TIM, &TIM_OCInitStructure);//根据结构体信息进行初始化
 	//TIM_OC1PreloadConfig(TIM2, TIM_OCPreload_Enable);  //使能定时器TIM2在CCR2上的预装载值
 
-	TIM_Cmd(TIM2, ENABLE);	//使能定时器TIM2
+	TIM_Cmd(PWM_TIM, ENABLE);	//使能定时器TIM2
 
-	TIM_SetCompare2(TIM2, 99);//得到占空比为50%的pwm波形
+	TIM_SetCompare2(PWM_TIM, 80);//得到占空比为50%的pwm波形
+
+	
+}
+void TIM_ENC_Config(void){
+	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;//定义初始化结构体
+	TIM_ICInitTypeDef TIM_ICInitStructure;   
+	RCC_APB1PeriphClockCmd(ENC_TIM_CLK, ENABLE); //使能定时器2时钟
+	TIM_DeInit(ENC_TIM);
+	TIM_TimeBaseStructInit(&TIM_TimeBaseStructure);
+	TIM_TimeBaseStructure.TIM_Period = ENC_CNT_MAX;  //设定计数器重装值	TIMx_ARR = 359*4
+	TIM_TimeBaseStructure.TIM_Prescaler = ENC_CNT_PRESCALER; //TIM3时钟预分频值
+	TIM_TimeBaseStructure.TIM_ClockDivision =TIM_CKD_DIV1 ;//设置时钟分割 T_dts = T_ck_int	
+	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up; //TIM向上计数 
+	TIM_TimeBaseInit(ENC_TIM, &TIM_TimeBaseStructure); 			 
+				 
+	TIM_EncoderInterfaceConfig(ENC_TIM, TIM_EncoderMode_TI12, TIM_ICPolarity_Rising,TIM_ICPolarity_BothEdge);//使用编码器模式3，上升下降都计数
+	TIM_ICStructInit(&TIM_ICInitStructure);//将结构体中的内容缺省输入
+	TIM_ICInitStructure.TIM_ICFilter = 6;  //选择输入比较滤波器
+	
+	
+	TIM_ICInit(ENC_TIM, &TIM_ICInitStructure);//将TIM_ICInitStructure中的指定参数初始化TIM3
+	
+//	TIM_ARRPreloadConfig(TIM4, ENABLE);//使能预装载
+	TIM_ClearFlag(ENC_TIM, TIM_FLAG_Update);//清除TIM3的更新标志位
+	//TIM_ITConfig(ENC_TIM, TIM_IT_Update, ENABLE);//运行更新中断
+	//Reset counter
+	ENC_TIM->CNT = 0;//
+
+	TIM_Cmd(ENC_TIM, ENABLE);	 //启动TIM4定时器
+
 }
 
 void Set_Data_Offset(int offset)

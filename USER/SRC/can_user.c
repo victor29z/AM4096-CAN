@@ -1,17 +1,5 @@
 #include "can_user.h"
-#include "stm32f10x.h"
-#include "core_cm3.h"
-#include "stm32f10x_gpio.h"
-#include "main.h"
-#include "stm32f10x_exti.h"
-#include "bsp.h"
-#include "SMBus.h"
-#include "stm32f10x_usart.h"
-#include "stm32f10x_can.h"
-#include "stm32f10x_flash.h"
 
-#include <stdio.h>
-#include "serial.h"
 
 //-----------------------------extern global varibles---------------------------------------
 extern unsigned char can_data[8];
@@ -159,7 +147,7 @@ void Can_Msg_Process(void)
 			
 }
 
-void Can_Send_Temp(unsigned int temp, unsigned char mag,unsigned int id)
+void Can_Send_Temp(u32 temp, unsigned char mag,unsigned int id)
 {
 	CanTxMsg TxMessage; //定义数据结构类型变量
 	unsigned char TransmitMailbox = 0;
@@ -168,11 +156,12 @@ void Can_Send_Temp(unsigned int temp, unsigned char mag,unsigned int id)
 	TxMessage.StdId=can_id;        //接受板地址
 	TxMessage.IDE=CAN_ID_STD;//使用标准帧
 	TxMessage.RTR=CAN_RTR_DATA;//发送数据帧
-	TxMessage.DLC= 3; //设置发送数据的长度
+	TxMessage.DLC= 4; //设置发送数据的长度
 
-	TxMessage.Data[0] = (temp >> 8) & 0xff;
-	TxMessage.Data[1] = temp & 0xff;
-	TxMessage.Data[2] = mag;
+	TxMessage.Data[0] = (temp >> 24) & 0xff;
+	TxMessage.Data[1] = (temp >> 16) & 0xff;
+	TxMessage.Data[2] = (temp >> 8) & 0xff;
+	TxMessage.Data[3] = temp & 0xff;
 
 	TransmitMailbox = CAN_Transmit(CAN1,&TxMessage);//开始发送数据
 	i = 0;

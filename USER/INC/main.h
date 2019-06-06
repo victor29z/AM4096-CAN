@@ -1,5 +1,6 @@
 #ifndef __MAIN_H__
 #define __MAIN_H__
+#include "stm32f10x.h"
 
 /* Micro defines
 --------------------------------------------*/
@@ -38,10 +39,12 @@ static void NVIC_init(void);
 void Systick_Procedure(void);
 void Delay_nms(unsigned int n);
 void Serial_Init(void);
-unsigned int get_ssi_value(void);
+u32 get_ssi_value(void);
 void ADC_Configuration(void);
 void Set_Data_Offset(int offset);
 void TIM_PWM_Config(void);
+void TIM_ENC_Config(void);
+u8 get_key_value(void);
 
 
 
