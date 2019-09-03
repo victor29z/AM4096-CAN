@@ -22,8 +22,8 @@
 #define KEY3_PIN GPIO_Pin_10
 #define KEY4_PIN GPIO_Pin_11
 
-#define SSICLK_PORT GPIOA
-#define SSIDAT_PORT GPIOA
+#define SSICLK_PORT GPIOB
+#define SSIDAT_PORT GPIOB
 #define SSICLK_PIN GPIO_Pin_6
 #define SSIDAT_PIN GPIO_Pin_7
 
@@ -36,19 +36,25 @@
 
 
 
-#ifdef BOARD_HAND		//board hand
+
 
 
 #define PWM1_PORT GPIOA
 #define PWM1_PIN  GPIO_Pin_1
 #define PWM2_PORT GPIOA
 #define PWM2_PIN  GPIO_Pin_2
+#define M_DIR_PORT GPIOA
+#define M_DIR_PIN  GPIO_Pin_3
+#define M_DIS_PORT GPIOA
+#define M_DIS_PIN  GPIO_Pin_4
+
+
 
 #define PWM_TIM	TIM2
 #define PWM_TIM_CLK	RCC_APB1Periph_TIM2
 
 
-#endif
+
 
 
 #define SERIAL_TX_PORT	GPIOA
@@ -79,11 +85,15 @@
 
 
 #define HAND_PWM_CANID	0x78
-#define HAND_PWM_LH		1
-#define HAND_PWM_RH		2
+#define HAND_PWM_LH		0x179
+#define HAND_PWM_RH		0x183
 
 
-#define SSI_DATA_LEN	12
+//#define SSI_DATA_LEN	12
+#define SSI_DATA_LEN	17
+//#define SSI_DATA_LEN	19
+
+
 #define ENC_CNT_MAX		65535
 #define ENC_CNT_PRESCALER	0
 

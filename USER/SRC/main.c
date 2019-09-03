@@ -71,7 +71,7 @@ unsigned int serial_cmd_timeout = 0;
 unsigned char serial_cmd_status = SERIAL_CMD_IDLE;
 
 volatile unsigned int ADC1Result;
-volatile unsigned int PWMCnt = 0;
+volatile unsigned int PWMCnt = 50;
 
 CanRxMsg can_rx_msg;
 
@@ -111,6 +111,9 @@ int main(void)
 	Systick_init();
 	soft_timer.status = TIMER_STATUS_STOP;
 	Delay_nms((can_id % 10) * 275 + (can_id % 100) * 33);// different start time to avoid message collision
+	
+	ENC_TIM->CNT = 0x8000;//;//wait for hand motor moving to initial place, then set encoder value to 0xff as initial value
+	PWMCnt = 8; // set motor torque to a low value to maintain position
 	while (1)
 	{	
 		//MAG_Status = GPIO_ReadInputDataBit(MAG_PORT,MAG_PIN);
@@ -163,13 +166,13 @@ int main(void)
 			unsigned char can_pwm;
 			new_can_data = 0;
 			
-			
-			if(hand_lr == can_rx_msg.Data[0]){	// if the hand id matched 
-				can_pwm = can_rx_msg.Data[1];
-				if(can_pwm > 99) can_pwm = 99;
-				PWMCnt = can_pwm;
+			if(can_id == HAND_PWM_LH){	// if the hand id matched 
+				can_pwm = can_rx_msg.Data[0];
 			}
-			
+			if(can_id == HAND_PWM_RH){	// if the hand id matched 
+				can_pwm = can_rx_msg.Data[1];			}
+			if(can_pwm > 99) can_pwm = 99;
+				PWMCnt = can_pwm;
 		}
 		
 		
@@ -228,7 +231,7 @@ static void clock_init(void)
 /////////////////////////////////////////////////////////////////////////////
 /*Enable used periph clocks*/
 	/* APB2 clock enable */
-	RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR , ENABLE);//enable rtc clock
+	//RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR , ENABLE);//enable rtc clock
     //RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
     RCC_APB2PeriphClockCmd(	RCC_APB2Periph_GPIOA 
     						| RCC_APB2Periph_GPIOB 
@@ -246,8 +249,8 @@ static void clock_init(void)
     						
                                                 ,ENABLE);
 	/* APB1 clock enable */
-	RCC_APB1PeriphClockCmd(	RCC_APB1Periph_I2C1
-							| RCC_APB1Periph_CAN1
+	RCC_APB1PeriphClockCmd(	//RCC_APB1Periph_I2C1
+							RCC_APB1Periph_CAN1
 							//| RCC_APB1Periph_USART2
 							//| RCC_APB1Periph_TIM2 
 							//| RCC_APB1Periph_TIM3 
@@ -308,7 +311,7 @@ static void port_init(void)
 	
 	GPIO_InitStructure.GPIO_Pin = SSIDAT_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 	GPIO_Init(SSIDAT_PORT,&GPIO_InitStructure);
 
 	
@@ -357,9 +360,9 @@ static void port_init(void)
 	//GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
 	GPIO_Init(CAN_TX_PORT, &GPIO_InitStructure);
+	
 
-
-#ifdef BOARD_HAND
+//PWM OUT
 	GPIO_InitStructure.GPIO_Pin = PWM1_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
@@ -373,8 +376,21 @@ static void port_init(void)
 	GPIO_Init(PWM2_PORT, &GPIO_InitStructure);
 
 	GPIO_ResetBits(PWM2_PORT,PWM2_PIN);
+
 	
-#endif
+	GPIO_InitStructure.GPIO_Pin = M_DIR_PIN;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(M_DIR_PORT, &GPIO_InitStructure);
+	GPIO_SetBits(M_DIR_PORT,M_DIR_PIN);
+
+	GPIO_InitStructure.GPIO_Pin = M_DIS_PIN;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_Init(M_DIS_PORT, &GPIO_InitStructure);
+
+	
+	GPIO_SetBits(M_DIS_PORT,M_DIS_PIN);
 	
 }
 
@@ -395,9 +411,9 @@ static void hw_init(void)
 	CAN_init();
 	FLASH_Lock();
 	//ADC_Configuration();
-#ifdef BOARD_HAND	
+	
 	TIM_PWM_Config();
-#endif
+
 #ifdef USE_SSI
 #else
 	TIM_ENC_Config();
@@ -704,7 +720,7 @@ void TIM_PWM_Config(void){
 
 	TIM_Cmd(PWM_TIM, ENABLE);	//使能定时器TIM2
 
-	TIM_SetCompare2(PWM_TIM, 80);//得到占空比为50%的pwm波形
+	TIM_SetCompare2(PWM_TIM, 8);
 
 	
 }
@@ -717,10 +733,10 @@ void TIM_ENC_Config(void){
 	TIM_TimeBaseStructure.TIM_Period = ENC_CNT_MAX;  //设定计数器重装值	TIMx_ARR = 359*4
 	TIM_TimeBaseStructure.TIM_Prescaler = ENC_CNT_PRESCALER; //TIM3时钟预分频值
 	TIM_TimeBaseStructure.TIM_ClockDivision =TIM_CKD_DIV1 ;//设置时钟分割 T_dts = T_ck_int	
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up; //TIM向上计数 
+	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Down; //TIM向上计数 
 	TIM_TimeBaseInit(ENC_TIM, &TIM_TimeBaseStructure); 			 
 				 
-	TIM_EncoderInterfaceConfig(ENC_TIM, TIM_EncoderMode_TI12, TIM_ICPolarity_Rising,TIM_ICPolarity_BothEdge);//使用编码器模式3，上升下降都计数
+	TIM_EncoderInterfaceConfig(ENC_TIM, TIM_EncoderMode_TI12, TIM_ICPolarity_Falling,TIM_ICPolarity_Falling);//使用编码器模式3，上升下降都计数
 	TIM_ICStructInit(&TIM_ICInitStructure);//将结构体中的内容缺省输入
 	TIM_ICInitStructure.TIM_ICFilter = 6;  //选择输入比较滤波器
 	
@@ -731,7 +747,7 @@ void TIM_ENC_Config(void){
 	TIM_ClearFlag(ENC_TIM, TIM_FLAG_Update);//清除TIM3的更新标志位
 	//TIM_ITConfig(ENC_TIM, TIM_IT_Update, ENABLE);//运行更新中断
 	//Reset counter
-	ENC_TIM->CNT = 0;//
+	ENC_TIM->CNT = 0x8000;//
 
 	TIM_Cmd(ENC_TIM, ENABLE);	 //启动TIM4定时器
 
