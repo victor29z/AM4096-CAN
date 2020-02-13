@@ -1,2 +1,4 @@
 Debug
 Release
+/EWARM/STM32-project.dep
+/EWARM/settings/STM32-project.dbgdt
