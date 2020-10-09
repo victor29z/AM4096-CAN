@@ -70,7 +70,7 @@ extern SMB_data_strcut SMB_data_buffer;
 unsigned int serial_cmd_timeout = 0;
 unsigned char serial_cmd_status = SERIAL_CMD_IDLE;
 
-volatile unsigned int ADC1Result;
+volatile u16 ADC1Result[2];
 volatile unsigned int PWMCnt = 50;
 
 CanRxMsg can_rx_msg;
@@ -126,11 +126,21 @@ int main(void)
 #else
 			ssi_res = ENC_TIM->CNT;			
 #endif
+
+			key_res = 0;
+			key_res = get_key_value();	
+
+#ifdef BOARD_HANDLE
+
+			ssi_res = (ADC1Result[0] & 0x0fff) | ((ADC1Result[1] & 0x0fff) << 12) | (key_res << 24);
+#else
 			key_res = 0;
 			key_res = get_key_value();
 			key_res <<= 28;  // use the highest 4 bits of can message to store the key value
 			ssi_res |= key_res;
 			//printf("ssi: %d, mag: %d\r\n",ssi_res, MAG_Status);
+
+#endif
 			Can_Send_Temp(ssi_res,MAG_Status,can_id);
 			
 
@@ -142,22 +152,7 @@ int main(void)
 				new_can_rtr = 0;
 		}
 		*/
-		if(SMB_status == SMB_R_FINISHED)
-		{
-
-			
-			SMB_status = SMB_IDLE;
-			result = Caculate_Temp();
-			
-			//printf("ssi: %d, cnt: %d, mag: %d\r\n",result,bus_busy_cnt, MAG_Status);
-			//printf("reg: 0x%x\r\n",SMB_data_buffer.data);
-			bus_busy_cnt = 0;
-			//not a default id then send temp
-			can_status = CAN1->ESR;
-			
-			
-			Can_Send_Temp(result,MAG_Status,can_id);
-		}
+		
 
 		if(serial_cmd_status == SERIAL_CMD_FINISHED){
 			Serial_cmd_parse();
@@ -232,7 +227,7 @@ static void clock_init(void)
 /*Enable used periph clocks*/
 	/* APB2 clock enable */
 	//RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR , ENABLE);//enable rtc clock
-    //RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
     RCC_APB2PeriphClockCmd(	RCC_APB2Periph_GPIOA 
     						| RCC_APB2Periph_GPIOB 
     						| RCC_APB2Periph_GPIOC 
@@ -241,7 +236,7 @@ static void clock_init(void)
     						//| RCC_APB2Periph_GPIOF 
     						//| RCC_APB2Periph_GPIOG 
     						| RCC_APB2Periph_AFIO  
-    						//| RCC_APB2Periph_ADC1  
+    						| RCC_APB2Periph_ADC1  
     						//| RCC_APB2Periph_ADC3  
     						//| RCC_APB2Periph_TIM1  
     						//| RCC_APB2Periph_TIM8  
@@ -281,27 +276,7 @@ static void port_init(void)
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 	GPIO_Init(SERIAL_RX_PORT, &GPIO_InitStructure);
 
-	//KEY PORT
-
-	GPIO_InitStructure.GPIO_Pin = KEY1_PIN;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
-	GPIO_Init(KEY1_PORT,&GPIO_InitStructure);
-
-	GPIO_InitStructure.GPIO_Pin = KEY2_PIN;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
-	GPIO_Init(KEY2_PORT,&GPIO_InitStructure);
-
-	GPIO_InitStructure.GPIO_Pin = KEY3_PIN;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
-	GPIO_Init(KEY3_PORT,&GPIO_InitStructure);
-
-	GPIO_InitStructure.GPIO_Pin = KEY4_PIN;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
-	GPIO_Init(KEY4_PORT,&GPIO_InitStructure);
+	
 #ifdef USE_SSI	
 	//ssi port
 	GPIO_InitStructure.GPIO_Pin = SSICLK_PIN;
@@ -332,23 +307,46 @@ static void port_init(void)
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 	GPIO_Init(ENCZ_PORT,&GPIO_InitStructure);
 #endif
-/*	
-	//I2C port
-	GPIO_InitStructure.GPIO_Pin = SCL_PIN;
+#ifdef BOARD_HANDLE
+	//KEY PORT
+	GPIO_InitStructure.GPIO_Pin = TOPKEY1_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
-	GPIO_Init(SCL_PORT, &GPIO_InitStructure);
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+	GPIO_Init(TOPKEY1_PORT,&GPIO_InitStructure);
 	
-	GPIO_InitStructure.GPIO_Pin = SDA_PIN;
+	GPIO_InitStructure.GPIO_Pin = TOPKEY2_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
-	GPIO_Init(SDA_PORT, &GPIO_InitStructure);
-	// MAG
-	GPIO_InitStructure.GPIO_Pin = MAG_PIN;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+	GPIO_Init(TOPKEY2_PORT,&GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = TOPKEY3_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-	GPIO_Init(MAG_PORT,&GPIO_InitStructure);
-*/
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+	GPIO_Init(TOPKEY3_PORT,&GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = BUTKEY1_PIN;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+	GPIO_Init(BUTKEY1_PORT,&GPIO_InitStructure);
+	
+	
+	GPIO_InitStructure.GPIO_Pin = BUTKEY2_PIN;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+	GPIO_Init(BUTKEY2_PORT,&GPIO_InitStructure);
+
+// AD PORT	
+	GPIO_InitStructure.GPIO_Pin = OUT_X_PIN;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
+	GPIO_Init(OUT_X_PORT,&GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = OUT_Y_PIN;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
+	GPIO_Init(OUT_Y_PORT,&GPIO_InitStructure);
+#endif
+
 	//CAN
 	GPIO_InitStructure.GPIO_Pin = CAN_RX_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
@@ -363,6 +361,7 @@ static void port_init(void)
 	
 
 //PWM OUT
+/*
 	GPIO_InitStructure.GPIO_Pin = PWM1_PIN;
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
@@ -391,7 +390,7 @@ static void port_init(void)
 
 	
 	GPIO_SetBits(M_DIS_PORT,M_DIS_PIN);
-	
+*/	
 }
 
 static void hw_init(void)
@@ -410,7 +409,7 @@ static void hw_init(void)
 	can_id = can_id_mem & 0x7ff;
 	CAN_init();
 	FLASH_Lock();
-	//ADC_Configuration();
+	ADC_Configuration();
 	
 	TIM_PWM_Config();
 
@@ -549,10 +548,7 @@ void Systick_Procedure(void)
 		read_request = 1;
 	}
 
-	if(SMB_status != SMB_IDLE){
-			bus_busy_cnt++;
-	}
-
+	
 	if(serial_cmd_status != SERIAL_CMD_IDLE){
 		if(serial_cmd_timeout < 20)
 			serial_cmd_timeout++;
@@ -621,14 +617,16 @@ u32 get_ssi_value(void){
 
 u8 get_key_value(void){
 	u8 result = 0;
-	if(!GPIO_ReadInputDataBit(KEY1_PORT,KEY1_PIN))
+	if(!GPIO_ReadInputDataBit(TOPKEY1_PORT,TOPKEY1_PIN))
 		result |= 0x01;
-	if(!GPIO_ReadInputDataBit(KEY2_PORT,KEY2_PIN))
+	if(!GPIO_ReadInputDataBit(TOPKEY2_PORT,TOPKEY2_PIN))
 		result |= 0x02;
-	if(!GPIO_ReadInputDataBit(KEY3_PORT,KEY3_PIN))
+	if(!GPIO_ReadInputDataBit(TOPKEY3_PORT,TOPKEY3_PIN))
 		result |= 0x04;
-	if(!GPIO_ReadInputDataBit(KEY4_PORT,KEY4_PIN))
+	if(!GPIO_ReadInputDataBit(BUTKEY1_PORT,BUTKEY1_PIN))
 		result |= 0x08;
+	if(!GPIO_ReadInputDataBit(BUTKEY2_PORT,BUTKEY2_PIN))
+		result |= 0x10;
 
 	return result;
 
@@ -643,11 +641,11 @@ void ADC_Configuration(void)
 	DMA_DeInit(DMA1_Channel1);
 	
     DMA_InitStructure.DMA_PeripheralBaseAddr = ADC1_DR_Address;
-	DMA_InitStructure.DMA_MemoryBaseAddr = (u32 )(&ADC1Result);
+	DMA_InitStructure.DMA_MemoryBaseAddr = (u32 )ADC1Result;
 	DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
-	DMA_InitStructure.DMA_BufferSize = 1;
+	DMA_InitStructure.DMA_BufferSize = 2;
 	DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Disable;
+	DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
 	DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
 	DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
 	DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;
@@ -660,18 +658,17 @@ void ADC_Configuration(void)
 
 	/* ADC1 configuration ------------------------------------------------------*/
 	ADC_InitStructure.ADC_Mode = ADC_Mode_Independent;
-	ADC_InitStructure.ADC_ScanConvMode = DISABLE;
+	ADC_InitStructure.ADC_ScanConvMode = ENABLE;
 	ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;
 	ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
 	ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
-	ADC_InitStructure.ADC_NbrOfChannel = 1;
+	ADC_InitStructure.ADC_NbrOfChannel = 2;
 	ADC_Init(ADC1, &ADC_InitStructure);
 	/* ADC1 regular channel14 configuration */ 
 	//ADC_RegularChannelConfig(ADC1, ADC_Channel_16, 1, ADC_SampleTime_55Cycles5);
-	ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 1, ADC_SampleTime_55Cycles5);
-/*
-	ADC_RegularChannelConfig(ADC1, ADC_Channel_3, 2, ADC_SampleTime_7Cycles5);
-	ADC_RegularChannelConfig(ADC1, ADC_Channel_4, 3, ADC_SampleTime_7Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 1, ADC_SampleTime_239Cycles5);
+	ADC_RegularChannelConfig(ADC1, ADC_Channel_2, 2, ADC_SampleTime_239Cycles5);
+/*	ADC_RegularChannelConfig(ADC1, ADC_Channel_4, 3, ADC_SampleTime_7Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_5, 4, ADC_SampleTime_7Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_10, 5, ADC_SampleTime_7Cycles5);
 	ADC_RegularChannelConfig(ADC1, ADC_Channel_11, 6, ADC_SampleTime_7Cycles5);

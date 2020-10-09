@@ -1,6 +1,7 @@
 #ifndef __BSP_H__
 #define __BSP_H__
-#define BOARD_HAND 1
+//#define BOARD_HAND 1
+#define BOARD_HANDLE	1
 //#define USE_SSI 1
 /* Micro defines
 --------------------------------------------*/
@@ -82,15 +83,30 @@
 #define CAN_TX_PIN  GPIO_Pin_12
 #define CAN_RX_PORT GPIOA
 #define CAN_RX_PIN  GPIO_Pin_11
+//for handle board
+#define TOPKEY1_PORT	GPIOB
+#define TOPKEY1_PIN		GPIO_Pin_8
+#define TOPKEY2_PORT	GPIOB
+#define TOPKEY2_PIN		GPIO_Pin_9
+#define TOPKEY3_PORT	GPIOB
+#define TOPKEY3_PIN		GPIO_Pin_10
+#define BUTKEY1_PORT	GPIOB
+#define BUTKEY1_PIN		GPIO_Pin_11
+#define BUTKEY2_PORT	GPIOB
+#define BUTKEY2_PIN		GPIO_Pin_12
 
+#define OUT_X_PORT		GPIOA
+#define OUT_X_PIN		GPIO_Pin_1
+#define OUT_Y_PORT		GPIOA
+#define OUT_Y_PIN		GPIO_Pin_2
 
 #define HAND_PWM_CANID	0x78
 #define HAND_PWM_LH		0x179
 #define HAND_PWM_RH		0x183
 
 
-//#define SSI_DATA_LEN	12
-#define SSI_DATA_LEN	17
+#define SSI_DATA_LEN	12
+//#define SSI_DATA_LEN	17
 //#define SSI_DATA_LEN	19
 
 
